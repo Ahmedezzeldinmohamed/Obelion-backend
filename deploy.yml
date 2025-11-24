@@ -1,0 +1,64 @@
+name: Deploy Laravel App
+
+on:
+  push:
+    branches:
+      - "12.x"
+
+jobs:
+  deploy:
+    name: Deploy to EC2 Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          port: 22
+
+          script: |
+            echo "===== START DEPLOY ====="
+
+            if ! [ -x "$(command -v docker)" ]; then
+              sudo apt update -y
+              sudo apt install -y docker.io docker-compose git
+              sudo usermod -aG docker $USER
+            fi
+
+            if [ ! -d "laravel-backend" ]; then
+              git clone https://github.com/YOUR_USERNAME/Obelion-laravel laravel-backend
+              cd laravel-backend
+            else
+              cd laravel-backend
+            fi
+
+            git fetch --all
+            git checkout 12.x
+            git pull origin 12.x
+
+            echo "Building .env..."
+            cat <<EOF > .env
+APP_NAME=Laravel
+APP_ENV=production
+APP_KEY=
+APP_DEBUG=false
+APP_URL=\${{ secrets.APP_URL }}
+
+DB_CONNECTION=mysql
+DB_HOST=\${{ secrets.DB_HOST }}
+DB_PORT=3306
+DB_DATABASE=\${{ secrets.DB_DATABASE }}
+DB_USERNAME=\${{ secrets.DB_USERNAME }}
+DB_PASSWORD=\${{ secrets.DB_PASSWORD }}
+EOF
+
+            chmod +x deploy.sh
+            ./deploy.sh
+
+            echo "===== DEPLOY FINISHED ====="
