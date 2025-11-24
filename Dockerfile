@@ -1,6 +1,6 @@
 FROM php:8.2-fpm
 
-# Install required libs for Laravel + MySQL
+# Install required libs
 RUN apt-get update && apt-get install -y \
     git \
     curl \
