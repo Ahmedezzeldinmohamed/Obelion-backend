@@ -1,9 +1,9 @@
-name: Deploy Laravel App
+name: Deploy Laravel Backend
 
 on:
   push:
     branches:
-      - "12.x"
+      - "12.x" 
 
 jobs:
   deploy:
@@ -17,11 +17,11 @@ jobs:
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_KEY }}
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-
+          
           script: |
             echo "===== START DEPLOY ====="
 
@@ -31,30 +31,38 @@ jobs:
               sudo usermod -aG docker $USER
             fi
 
+            # 🚨 التعديل الأول: استخدام git clone عبر SSH
             if [ ! -d "laravel-backend" ]; then
-              git clone https://github.com/Ahmedezzeldinmohamed/Obelion-laravel laravel-backend
+              # نستخدم git clone SSH لضمان عملها بشكل سليم مع المفتاح
+              git clone git@github.com:${{ github.repository }} laravel-backend
               cd laravel-backend
             else
               cd laravel-backend
+              echo "Cleaning up old data..."
+              sudo rm -rf vendor bootstrap/cache
             fi
 
+            # إعداد Git لاستخدام الـ SSH لعمليات الـ Pull اللاحقة
+            git remote set-url origin git@github.com:${{ github.repository }}
             git fetch --all
             git checkout 12.x
             git pull origin 12.x
 
-            echo "Building .env..."
-            echo "APP_NAME=Laravel" > .env
-            echo "APP_ENV=production" >> .env
-            echo "APP_KEY=" >> .env
-            echo "APP_DEBUG=false" >> .env
-            echo "APP_URL=${{ secrets.APP_URL }}" >> .env
+            echo "Creating .env file..."
+            cat <<EOF > .env
+APP_NAME=Laravel
+APP_ENV=production
+APP_KEY=
+APP_DEBUG=false
+APP_URL=http://${{ secrets.HOST_IP }}
 
-            echo "DB_CONNECTION=mysql" >> .env
-            echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-            echo "DB_PORT=3306" >> .env
-            echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env
-            echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
-            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+DB_CONNECTION=mysql
+DB_HOST=${{ secrets.RDS_HOST }}
+DB_PORT=3306
+DB_DATABASE=ecommerce_db
+DB_USERNAME=${{ secrets.RDS_USER }}
+DB_PASSWORD=${{ secrets.RDS_PASS }}
+EOF
 
             chmod +x deploy.sh
             ./deploy.sh
